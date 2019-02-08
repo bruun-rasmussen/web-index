@@ -1,0 +1,5 @@
+#
+# Index exceptions for Danish. Mainly here to correct various plural-to-singular irregularities
+#
+
+bøger=bog
