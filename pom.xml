@@ -9,7 +9,7 @@
     <parent>
         <groupId>dk.es.br</groupId>
         <artifactId>modules</artifactId>
-        <version>1.456.3</version>
+        <version>1.457-SNAPSHOT</version>
     </parent>
 
     <artifactId>web-index</artifactId>
