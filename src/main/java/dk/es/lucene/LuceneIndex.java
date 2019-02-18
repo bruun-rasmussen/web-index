@@ -27,7 +27,6 @@ import org.apache.lucene.search.Query;
 /**
  * @author     TietoEnator Consulting
  * @since      28. januar 2004
- * @version    $Id$
  */
 public abstract class LuceneIndex
 {

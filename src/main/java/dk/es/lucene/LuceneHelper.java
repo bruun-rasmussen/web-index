@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 /**
  * @author     TietoEnator Consulting
  * @since      6. april 2004
- * @version    $Id$
  */
 public class LuceneHelper
 {

@@ -24,7 +24,6 @@ import org.apache.lucene.analysis.standard.StandardTokenizer;
  * before the {@link SnowballFilter}
  * 
  * @author    kristoffer
- * @version   $Id$
  */
 public class BruunRasmussenAnalyzer extends Analyzer
 {

@@ -15,7 +15,6 @@ import org.apache.lucene.analysis.TokenStream;
  * expressions, and the general rules for that have lots of exceptions
  * 
  * @author    kristoffer
- * @version   $Id$
  */
 public class BruunRasmussenFilter extends TokenFilter
 {

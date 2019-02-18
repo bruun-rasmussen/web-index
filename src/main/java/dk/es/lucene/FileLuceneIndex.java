@@ -10,7 +10,6 @@ import org.apache.lucene.search.IndexSearcher;
 /**
  * @author     TietoEnator Consulting
  * @since      18. februar 2004
- * @version    $Id$
  */
 public class FileLuceneIndex extends LuceneIndex
 {
