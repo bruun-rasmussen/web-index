@@ -50,5 +50,7 @@ public class LuceneIndexTest
     assertEquals(0, da.search("nevermind", "description").size());
     assertEquals(1, da.search("Rød begyndelse", "description").size());
     assertEquals(3, da.search("Knud Nielsen", "description").size());
+    assertEquals(2, da.search("kontorstol", "description").size());
+    assertEquals(2, da.search("stol", "description").size());
   }
 }
