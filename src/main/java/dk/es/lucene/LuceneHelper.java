@@ -24,12 +24,12 @@ public class LuceneHelper
    */
   private final static RegexpReplacement STANDARD_ITEM_REPLACEMENTS[] =
       {
-  // Standardize Poul Kjærholm models and Wegner chairs:
+  // Standardize Poul KjÃ¦rholm models and Wegner chairs:
   // 'pk-22', 'ch 15', 'ch26' -> 'pk_22', 'ch_15', 'ch_26'
       new RegexpReplacement("\\b([Pp][Kk]|[Cc][Hh])[-/. ]*([0-9]+)\\b", "$1 $2"),
       };
 
-  private final static String ACCENTED_CHARS = "ÁÀÄÂáàäâÉÈËÊéèëêÍÌÏÎíìïîÓÒÖÔóòöôÚÙÜÛúùüûİıÑñ";
+  private final static String ACCENTED_CHARS = "ÃÃ€Ã„Ã‚Ã¡Ã Ã¤Ã¢Ã‰ÃˆÃ‹ÃŠÃ©Ã¨Ã«ÃªÃÃŒÃÃÃ­Ã¬Ã¯Ã®Ã“Ã’Ã–Ã”Ã³Ã²Ã¶Ã´ÃšÃ™ÃœÃ›ÃºÃ¹Ã¼Ã»ÃÃ½Ã‘Ã±";
   private final static String REPLACED_CHARS = "AAAAaaaaEEEEeeeeIIIIiiiiOOOOooooUUUUuuuuYyNn";
 
   // '"'
@@ -104,7 +104,7 @@ public class LuceneHelper
 
   public final static void main(String args[])
   {
-    String text = "En PK 22, to pk-31'ere, en pK33. Én ch     345 ög en APK 15";
+    String text = "En PK 22, to pk-31'ere, en pK33. Ã‰n ch     345 Ã¶g en APK 15";
 
     System.out.println(normalize(text));
   }
