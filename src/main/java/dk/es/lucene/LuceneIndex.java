@@ -1,6 +1,7 @@
 package dk.es.lucene;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -23,6 +24,7 @@ import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.search.Hits;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.store.RAMDirectory;
 
 /**
  * @author     TietoEnator Consulting
@@ -34,6 +36,40 @@ public abstract class LuceneIndex
 
   protected final Locale m_loc;
   protected final Analyzer m_analyzer;
+
+  public static LuceneIndex RAM(Locale loc) {    
+    final RAMDirectory dir = new RAMDirectory();
+
+    return new LuceneIndex(loc) {
+      protected IndexWriter getWriter(boolean create) throws IOException {
+        return new IndexWriter(dir, m_analyzer, create, IndexWriter.MaxFieldLength.LIMITED);
+      }
+      protected IndexReader getReader() throws IOException {
+        return IndexReader.open(dir);
+      }
+      protected IndexSearcher getSearcher() throws IOException {
+        return new IndexSearcher(dir);
+      }        
+    };
+  }
+
+  public static LuceneIndex DISK(Locale loc, File indexDir) {
+    final String path = indexDir.getAbsolutePath();
+    LOG.info("creating index in {}", path);
+    indexDir.mkdirs();
+    
+    return new LuceneIndex(loc) {
+      protected IndexWriter getWriter(boolean create) throws IOException {
+        return new IndexWriter(path, m_analyzer, create, IndexWriter.MaxFieldLength.LIMITED);
+      }
+      protected IndexReader getReader() throws IOException {
+        return IndexReader.open(path);
+      }
+      protected IndexSearcher getSearcher() throws IOException {
+        return new IndexSearcher(path);
+      }
+    };
+  }
 
   protected LuceneIndex(Locale loc)
   {
@@ -55,10 +91,10 @@ public abstract class LuceneIndex
         "sv".equals(shortLang) ? "Swedish" : "Unknown";
   }
 
-  public abstract IndexWriter getWriter(boolean create)
+  protected abstract IndexWriter getWriter(boolean create)
     throws IOException;
 
-  public abstract IndexReader getReader()
+  protected abstract IndexReader getReader()
     throws IOException;
 
   protected abstract IndexSearcher getSearcher()
