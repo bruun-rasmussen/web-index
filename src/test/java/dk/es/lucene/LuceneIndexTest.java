@@ -2,54 +2,20 @@ package dk.es.lucene;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.net.URL;
 
 import static org.junit.Assert.assertEquals;
 
-/**
- * @author osa
- */
 public class LuceneIndexTest {
 
-    private static void readYaml(InputStream is, LuceneIndex index) throws IOException {
-        Yaml yaml = new Yaml();
-
-        Map<Integer, List<Map<String, String>>> obj = (Map<Integer, List<Map<String, String>>>) yaml.load(is);
-
-        LuceneIndex.Writer w = index.open(true);
-        for (Map.Entry<Integer, List<Map<String, String>>> k : obj.entrySet()) {
-            Long itemId = new Long(k.getKey());
-            LuceneIndex.Builder b = w.newDocument(itemId);
-            for (Map<String, String> o : k.getValue()) {
-                for (Map.Entry<String, String> ss : o.entrySet())
-                    b.textField(ss.getKey(), ss.getValue());
-            }
-            b.build();
-        }
-        w.close();
-    }
-
-    private LuceneIndex readIndex(String yamlResource) throws IOException {
-        String lang = yamlResource.replaceFirst(".*_([a-z]{2})\\.yaml", "$1");
-
-        LuceneIndex idx = LuceneIndex.RAM(new Locale(lang));
-        try (InputStream is = getClass().getResourceAsStream(yamlResource)) {
-            readYaml(is, idx);
-        }
-        return idx;
-    }
-
+    private final static URL SAMPLE_DA_YAML = LuceneIndexTest.class.getResource("sample_da.yaml");
     private LuceneIndex da;
 
     @Before
-    public void loadIndex() throws IOException {
-        da = readIndex("sample_da.yaml");
+    public void loadIndex() throws IOException {        
+        da = IndexYaml.readIndex(SAMPLE_DA_YAML);
     }
 
     @Test
@@ -87,6 +53,5 @@ public class LuceneIndexTest {
         assertEquals(1, da.search("lysestage", "description").size());
         assertEquals(2, da.search("bog", "description").size()); // bøger and Bogkasse, with prefix results
         assertEquals(2, da.search("bøger", "description").size()); // bøger->bog and Bogkasse, with prefix results
-
     }
 }
