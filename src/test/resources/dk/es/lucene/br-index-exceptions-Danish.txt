@@ -3,3 +3,5 @@
 #
 
 bøger=bog
+vitrine=skab
+skamler=skammel
