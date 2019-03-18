@@ -55,10 +55,9 @@ public class LuceneIndexTest {
     @Test
     public void testSimple() {
         assertEquals(1, da.search("Rød begyndelse", "description").size());
-        assertEquals(1, da.search("samlerobjekt", "description").size());
+        assertEquals(2, da.search("samlerobjekt", "description").size());
         assertEquals(0, da.search("nevermind", "description").size());
         assertEquals(3, da.search("Knud Nielsen", "description").size());
-
     }
 
 
@@ -85,6 +84,7 @@ public class LuceneIndexTest {
         // "Bogkasse og vitrine"
         assertEquals(1, da.search("skab", "description").size());
         assertEquals(1, da.search("vitrine", "description").size());
+        assertEquals(1, da.search("lysestage", "description").size());
         assertEquals(2, da.search("bog", "description").size()); // bøger and Bogkasse, with prefix results
         assertEquals(2, da.search("bøger", "description").size()); // bøger->bog and Bogkasse, with prefix results
 
