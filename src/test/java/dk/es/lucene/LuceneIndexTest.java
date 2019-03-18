@@ -24,6 +24,7 @@ public class LuceneIndexTest {
         assertEquals(2, da.search("samlerobjekt", "description").size());
         assertEquals(0, da.search("nevermind", "description").size());
         assertEquals(3, da.search("Knud Nielsen", "description").size());
+        assertEquals(1, da.search("Tal R", "description").size());
     }
 
 
