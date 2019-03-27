@@ -28,7 +28,15 @@ public class LuceneIndexTest {
     }
 
 
-    //"Peter Hansen" NOT maleri
+    @Test
+    public void testSmall() {
+        assertEquals(1, da.search("Hans Hansen", "description").size());
+    }
+
+
+
+    // TODO: Search on B&O and make test cases for this, with B&O's, etc
+
 
 
     @Test
@@ -48,7 +56,6 @@ public class LuceneIndexTest {
 
     @Test
     public void testSynonym() {
-        // "Bogkasse og vitrine"
         assertEquals(1, da.search("skab", "description").size());
         assertEquals(1, da.search("vitrine", "description").size());
         assertEquals(1, da.search("lysestage", "description").size());

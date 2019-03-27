@@ -133,10 +133,14 @@ public abstract class LuceneIndex {
         BooleanQuery query = new BooleanQuery();
         for (String part : parts) {
             if (fieldName.endsWith("_rev")) {
-                query.add(new PrefixQuery(new Term(fieldName, part)), BooleanClause.Occur.MUST);
+                if(parts.size() == 1) {
+                    query.add(new PrefixQuery(new Term(fieldName, part)), BooleanClause.Occur.MUST);
+                }
             } else {
                 BooleanQuery partQuery = new BooleanQuery();
-                partQuery.add(new PrefixQuery(new Term(fieldName, part)), BooleanClause.Occur.SHOULD);
+                if(parts.size() == 1){
+                    partQuery.add(new PrefixQuery(new Term(fieldName, part)), BooleanClause.Occur.SHOULD);
+                }
 //                partQuery.add(new BoostedQuery(new TermQuery(new Term(fieldName, part)), new ConstValueSource(2f)), BooleanClause.Occur.SHOULD);
                 partQuery.add(new TermQuery(new Term(fieldName, part)), BooleanClause.Occur.SHOULD);
                 query.add(partQuery, BooleanClause.Occur.MUST);
