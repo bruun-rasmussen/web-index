@@ -1,10 +1,3 @@
-AuctionShell - 1.459.3
-Connecting osa@bifrost... (1.459.3) ok
-Ole Sandum logged in
---------
-running /home/osa/BR/trunk/modules/support/web-index/index-snapshot.bsh
-2968 active item(s) found
-2968 active item(s) loaded
 301167091:
 -   description: 'Saxbo: Stor rund vase af stentøj. Dekoreret med blågrøn glasur med
         blå elementer. Udført og mærket hos Saxbo, 1931-1937. H. 31.'
@@ -22522,6 +22515,3 @@ running /home/osa/BR/trunk/modules/support/web-index/index-snapshot.bsh
 -   description: Parklandskab med spadserende personer. Sign. S 1933. Olie på lærred. 28 x 38.
 -   auctionCatalogNumber: 1915/935
 -   description: Moderne malerier
-
---------
-Ole Sandum logged out
