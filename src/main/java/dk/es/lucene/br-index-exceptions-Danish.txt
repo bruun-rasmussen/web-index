@@ -3,6 +3,3 @@
 #
 
 bøger=bog
-vitrine=skab
-lysestage=stage
-skamler=skammel
