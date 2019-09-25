@@ -3,3 +3,7 @@
 #
 
 bøger=bog
+skamler=skammel
+kontorstole=stole
+kontorstol=stol
+vitrine=skab

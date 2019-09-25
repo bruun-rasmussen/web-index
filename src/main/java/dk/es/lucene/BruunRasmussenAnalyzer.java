@@ -22,10 +22,10 @@ import org.apache.lucene.analysis.standard.StandardTokenizer;
 /**
  * Identical to {@link SnowballAnalyzer}, but with {@link BruunRasmussenFilter}
  * before the {@link SnowballFilter}
- * 
+ *
  * @author    kristoffer
  */
-public class BruunRasmussenAnalyzer extends Analyzer
+class BruunRasmussenAnalyzer extends Analyzer
 {
   private final static Logger LOG = LoggerFactory.getLogger(BruunRasmussenAnalyzer.class);
 
@@ -34,22 +34,18 @@ public class BruunRasmussenAnalyzer extends Analyzer
   private final Map brExceptions;
 
   /** Builds the named analyzer with no stop words. */
-  public BruunRasmussenAnalyzer(String name)
+  BruunRasmussenAnalyzer(String name)
   {
-    this.name = name;
-    this.stopSet = null;
-    this.brExceptions = null;
-
-    LOG.info("Initialized " + name);
+    this(name, new String[0]);
   }
 
   /** Builds the named analyzer with the given stop words. */
-  public BruunRasmussenAnalyzer(String name, String stopWords[])
+  BruunRasmussenAnalyzer(String name, String stopWords[])
   {
     this.name = name;
     this.stopSet = StopFilter.makeStopSet(stopWords);
     this.brExceptions = loadExceptions(name);
-    
+
     LOG.info("Initialized " + name + " (ex: " + Arrays.toString(stopWords) + ")");
   }
 
@@ -68,7 +64,7 @@ public class BruunRasmussenAnalyzer extends Analyzer
     {
       LOG.warn("Unable to load 'br-index-exceptions-" + name + ".txt'", e);
     }
-    
+
     return brExceptions;
   }
 
