@@ -49,14 +49,14 @@ public abstract class LuceneIndex
 {
   protected final static Logger LOG = LoggerFactory.getLogger(LuceneIndex.class);
 
-  private final Locale m_loc;
+  private final Locale loc;
   protected final Analyzer indexAnalyzer;
   protected final Analyzer queryAnalyzer;
 
-  public static LuceneIndex RAM(Locale loc) {
+  public static LuceneIndex RAM(Locale loc, String srcEncoding) {
     final RAMDirectory dir = new RAMDirectory();
 
-    return new LuceneIndex(loc) {
+    return new LuceneIndex(loc, srcEncoding) {
       protected IndexWriter getWriter(boolean create) throws IOException {
         return new IndexWriter(dir, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
       }
@@ -69,12 +69,12 @@ public abstract class LuceneIndex
     };
   }
 
-  public static LuceneIndex DISK(Locale loc, File indexDir) {
+  public static LuceneIndex DISK(Locale loc, File indexDir, String srcEncoding) {
     final String path = indexDir.getAbsolutePath();
     LOG.info("creating index in {}", path);
     indexDir.mkdirs();
 
-    return new LuceneIndex(loc) {
+    return new LuceneIndex(loc, srcEncoding) {
       protected IndexWriter getWriter(boolean create) throws IOException {
         return new IndexWriter(path, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
       }
@@ -87,25 +87,16 @@ public abstract class LuceneIndex
     };
   }
 
-  protected LuceneIndex(Locale loc)
+  protected LuceneIndex(Locale loc, String srcEncoding)
   {
-    m_loc = loc;
-    this.indexAnalyzer = analyzer(loc, true);
-    this.queryAnalyzer = analyzer(loc, false);
+    this.loc = loc;
+    this.indexAnalyzer = analyzer(loc, true, srcEncoding);
+    this.queryAnalyzer = analyzer(loc, false, srcEncoding);
   }
 
   public Locale getLocale()
   {
-    return m_loc;
-  }
-
-  public String getLanguageName()
-  {
-    String shortLang = getLocale().getLanguage();
-    return
-        "da".equals(shortLang) ? "Danish" :
-        "en".equals(shortLang) ? "English" :
-        "sv".equals(shortLang) ? "Swedish" : "Unknown";
+    return loc;
   }
 
   protected abstract IndexWriter getWriter(boolean create)
@@ -121,14 +112,14 @@ public abstract class LuceneIndex
     throws IOException, ParseException
   {
     queryText = LuceneHelper.normalize(queryText);
-    queryText = LuceneHelper.escapeLuceneQuery(queryText).toLowerCase(m_loc);
-    LOG.debug("query: \"{}\"", queryText);
-    QueryParser parser = new QueryParser(fieldName, queryAnalyzer); // <- should not use same analyzer as index writer!
+    queryText = LuceneHelper.escapeLuceneQuery(queryText).toLowerCase(loc);
+    LOG.debug("query: \"{}\"[{}]", queryText, loc.getLanguage());
+    QueryParser parser = new QueryParser(fieldName, queryAnalyzer);
     parser.setDefaultOperator(QueryParser.AND_OPERATOR);
     Query query = parser.parse(queryText);
 
     Hits hits = getSearcher().search(query);
-    LOG.info("\"{}\"[{}]: {} hit(s)", queryText, m_loc.getLanguage(), hits.length());
+    LOG.info("\"{}\"[{}]: {} hit(s)", queryText, loc.getLanguage(), hits.length());
     return hits;
   }
 
@@ -157,7 +148,7 @@ public abstract class LuceneIndex
     return baseIds;
   }
 
-  private static Analyzer analyzer(Locale loc, boolean generalize)
+  private static Analyzer analyzer(Locale loc, boolean generalize, String srcEncoding)
   {
     try {
       ClassLoader cl = Thread.currentThread().getContextClassLoader();
@@ -212,6 +203,7 @@ public abstract class LuceneIndex
     Properties exceptions = new Properties();
     try (Reader is = new InputStreamReader(source.openStream(), "UTF-8")) {
       exceptions.load(is);
+      LOG.info("{} loaded ({} terms)", source, exceptions.size());
     }
     return exceptions;
   }
@@ -236,6 +228,7 @@ public abstract class LuceneIndex
         if (line.length() > 0)
           result.add(line);
       }
+      LOG.info("{} loaded ({} terms)", source, result.size());
       return (String[])result.toArray(new String[result.size()]);
     }
   }
@@ -246,7 +239,7 @@ public abstract class LuceneIndex
     IndexReader reader = getReader();
     int deleteCount = reader.deleteDocuments(new Term(ITEM_ID, itemId.toString()));
     if (deleteCount > 0)
-      LOG.info("removed item {} from {} index", itemId, getLanguageName());
+      LOG.info("removed item {}({}) from index", itemId, loc.getLanguage());
     reader.close();
   }
 
@@ -277,7 +270,7 @@ public abstract class LuceneIndex
         public void build() throws IOException {
           doc.add(new Field(ITEM_ID, itemId.toString(), Field.Store.YES, Field.Index.NOT_ANALYZED));
           writer.addDocument(doc);
-          LOG.debug("added item {} ({})", itemId, m_loc.getLanguage());
+          LOG.debug("added item {}[{}]", itemId, loc.getLanguage());
           ++written;
         }
       };
