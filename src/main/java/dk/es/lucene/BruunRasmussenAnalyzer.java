@@ -1,11 +1,9 @@
 package dk.es.lucene;
 
 import java.io.Reader;
-import java.net.URL;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -18,6 +16,8 @@ import org.apache.lucene.analysis.snowball.SnowballAnalyzer;
 import org.apache.lucene.analysis.snowball.SnowballFilter;
 import org.apache.lucene.analysis.standard.StandardFilter;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
+import org.tartarus.snowball.SnowballProgram;
+import org.tartarus.snowball.ext.*;
 
 /**
  * Identical to {@link SnowballAnalyzer}, but with {@link BruunRasmussenFilter}
@@ -29,43 +29,18 @@ class BruunRasmussenAnalyzer extends Analyzer
 {
   private final static Logger LOG = LoggerFactory.getLogger(BruunRasmussenAnalyzer.class);
 
-  private final String name;
+  private final Locale loc;
   private final Set stopSet;
-  private final Map brExceptions;
-
-  /** Builds the named analyzer with no stop words. */
-  BruunRasmussenAnalyzer(String name)
-  {
-    this(name, new String[0]);
-  }
+  private final Map exceptions;
 
   /** Builds the named analyzer with the given stop words. */
-  BruunRasmussenAnalyzer(String name, String stopWords[])
+  BruunRasmussenAnalyzer(Locale loc, String stopWords[], Map exceptions)
   {
-    this.name = name;
-    this.stopSet = StopFilter.makeStopSet(stopWords);
-    this.brExceptions = loadExceptions(name);
+    this.loc = loc;
+    this.stopSet = stopWords == null ? null : StopFilter.makeStopSet(stopWords);
+    this.exceptions = exceptions;
 
-    LOG.info("Initialized " + name + " (ex: " + Arrays.toString(stopWords) + ")");
-  }
-
-  private static Map loadExceptions(String name)
-  {
-    URL source = BruunRasmussenAnalyzer.class.getResource("br-index-exceptions-" + name + ".txt");
-    Properties exceptions = new Properties();
-    Map brExceptions = new HashMap(exceptions.size());
-    try
-    {
-      exceptions.load(source.openStream());
-      for (Object key : exceptions.keySet())
-        brExceptions.put(key.toString(), exceptions.getProperty(key.toString()));
-    }
-    catch (Exception e)
-    {
-      LOG.warn("Unable to load 'br-index-exceptions-" + name + ".txt'", e);
-    }
-
-    return brExceptions;
+    LOG.info("{} initialized, ex: {}", loc.getLanguage(), Arrays.toString(stopWords));
   }
 
   public TokenStream tokenStream(String fieldName, Reader reader)
@@ -76,10 +51,21 @@ class BruunRasmussenAnalyzer extends Analyzer
     if (stopSet != null)
       result = new StopFilter(result, stopSet);
 
-    result = new BruunRasmussenFilter(result, brExceptions);
-
-    result = new SnowballFilter(result, name);
+    // Synonym replacement before (and/)or after snowball stemming?
+    // Replace before, and the exception list needs to include all word-endings,
+    // replace after, and it must be aware of awkward stem-forms.
+    // TODO: consider doing both! (in separate files)
+    if (exceptions != null)
+      result = new BruunRasmussenFilter(result, exceptions);
+    result = new SnowballFilter(result, stemmerFor(loc));
 
     return result;
+  }
+
+  private static SnowballProgram stemmerFor(Locale loc) {
+    String lang = loc.getLanguage();
+    return "da".equals(lang) ? new DanishStemmer() :
+           "sv".equals(lang) ? new SwedishStemmer() :
+           "en".equals(lang) ? new EnglishStemmer() : null;
   }
 }

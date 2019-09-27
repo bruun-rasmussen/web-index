@@ -3,11 +3,14 @@ package dk.es.lucene;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import org.apache.commons.lang.StringUtils;
 
@@ -34,10 +37,10 @@ public abstract class LuceneIndex
 {
   protected final static Logger LOG = LoggerFactory.getLogger(LuceneIndex.class);
 
-  protected final Locale m_loc;
+  private final Locale m_loc;
   protected final Analyzer m_analyzer;
 
-  public static LuceneIndex RAM(Locale loc) {    
+  public static LuceneIndex RAM(Locale loc) {
     final RAMDirectory dir = new RAMDirectory();
 
     return new LuceneIndex(loc) {
@@ -49,7 +52,7 @@ public abstract class LuceneIndex
       }
       protected IndexSearcher getSearcher() throws IOException {
         return new IndexSearcher(dir);
-      }        
+      }
     };
   }
 
@@ -57,7 +60,7 @@ public abstract class LuceneIndex
     final String path = indexDir.getAbsolutePath();
     LOG.info("creating index in {}", path);
     indexDir.mkdirs();
-    
+
     return new LuceneIndex(loc) {
       protected IndexWriter getWriter(boolean create) throws IOException {
         return new IndexWriter(path, m_analyzer, create, IndexWriter.MaxFieldLength.LIMITED);
@@ -142,40 +145,61 @@ public abstract class LuceneIndex
 
   private Analyzer createAnalyzer()
   {
-    String shortLang = m_loc.getLanguage();
-    String longLang = getLanguageName();
+    try {
+      ClassLoader cl = Thread.currentThread().getContextClassLoader();
+      String stopWords[] = parseWords(cl.getResource("lucene/stopwords_" + m_loc.getLanguage() + ".txt"));
+      Map exceptions = loadExceptions(cl.getResource("lucene/exceptions_" + m_loc.getLanguage() + ".txt"));
 
-    URL stopWordsUrl = LuceneIndex.class.getResource("stop_" + shortLang + ".txt");
-    if (stopWordsUrl != null)
-      try
-      {
-        String stopWords[] = parseWords(stopWordsUrl);
-        return new BruunRasmussenAnalyzer(longLang, stopWords);
-      }
-      catch (IOException ex)
-      {
-        LOG.error(stopWordsUrl + ": failed loading stop-words", ex);
-      }
-
-    return new BruunRasmussenAnalyzer(longLang);
+      return new BruunRasmussenAnalyzer(m_loc, stopWords, exceptions);
+    }
+    catch (IOException ex) {
+      throw new RuntimeException(ex);
+    }
   }
+
+
+  private static Map loadExceptions(URL source)
+    throws IOException
+  {
+    if (source == null)
+      return null;
+
+    Properties exceptions = new Properties();
+    InputStream is = source.openStream();
+    try {
+      exceptions.load(is);
+      return exceptions;
+    }
+    finally {
+      is.close();
+    }
+  }
+
 
   private static String[] parseWords(URL source)
     throws IOException
   {
+    if (source == null)
+        return null;
+
     BufferedReader rdr = new BufferedReader(new InputStreamReader(source.openStream(), "iso-8859-1"));
-    ArrayList result = new ArrayList();
-    String line;
-    while ((line = rdr.readLine()) != null)
-    {
-      int barPos = line.indexOf('|');
-      if (barPos > 0)
-        line = line.substring(0, barPos - 1);
-      line = line.trim();
-      if (line.length() > 0)
-        result.add(line);
+    try {
+      ArrayList result = new ArrayList();
+      String line;
+      while ((line = rdr.readLine()) != null)
+      {
+        int barPos = line.indexOf('|');
+        if (barPos > 0)
+          line = line.substring(0, barPos - 1);
+        line = line.trim();
+        if (line.length() > 0)
+          result.add(line);
+      }
+      return (String[])result.toArray(new String[result.size()]);
     }
-    return (String[])result.toArray(new String[result.size()]);
+    finally {
+      rdr.close();
+    }
   }
 
   private final static String ITEM_ID = "item_id";

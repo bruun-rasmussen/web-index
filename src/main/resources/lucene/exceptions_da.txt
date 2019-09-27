@@ -4,6 +4,6 @@
 
 bøger=bog
 skamler=skammel
-kontorstole=stole
 kontorstol=stol
+kontorstole=stol
 vitrine=skab

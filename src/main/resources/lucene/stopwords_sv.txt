@@ -1,0 +1,2 @@
+ | A Swedish stop word list. Comments begin with vertical bar. Each stop
+ | word is at the start of a line.
