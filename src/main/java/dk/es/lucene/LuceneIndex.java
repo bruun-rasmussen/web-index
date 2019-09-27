@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -17,6 +18,14 @@ import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.LowerCaseFilter;
+import org.apache.lucene.analysis.StopFilter;
+import org.apache.lucene.analysis.Token;
+import org.apache.lucene.analysis.TokenFilter;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.snowball.SnowballFilter;
+import org.apache.lucene.analysis.standard.StandardFilter;
+import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexReader;
@@ -28,6 +37,10 @@ import org.apache.lucene.search.Hits;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.store.RAMDirectory;
+import org.tartarus.snowball.SnowballProgram;
+import org.tartarus.snowball.ext.DanishStemmer;
+import org.tartarus.snowball.ext.EnglishStemmer;
+import org.tartarus.snowball.ext.SwedishStemmer;
 
 /**
  * @author     TietoEnator Consulting
@@ -109,7 +122,7 @@ public abstract class LuceneIndex
     queryText = LuceneHelper.normalize(queryText);
     queryText = LuceneHelper.escapeLuceneQuery(queryText).toLowerCase(m_loc);
     LOG.debug("query: \"{}\"", queryText);
-    QueryParser parser = new QueryParser(fieldName, m_analyzer);
+    QueryParser parser = new QueryParser(fieldName, m_analyzer); // <- should not use same analyzer as index writer!
     parser.setDefaultOperator(QueryParser.AND_OPERATOR);
     Query query = parser.parse(queryText);
 
@@ -148,15 +161,43 @@ public abstract class LuceneIndex
     try {
       ClassLoader cl = Thread.currentThread().getContextClassLoader();
       String stopWords[] = parseWords(cl.getResource("lucene/stopwords_" + m_loc.getLanguage() + ".txt"));
-      Map exceptions = loadExceptions(cl.getResource("lucene/exceptions_" + m_loc.getLanguage() + ".txt"));
 
-      return new BruunRasmussenAnalyzer(m_loc, stopWords, exceptions);
+      final Set stopSet = stopWords == null ? null : StopFilter.makeStopSet(stopWords);
+      final Map exceptions = loadExceptions(cl.getResource("lucene/exceptions_" + m_loc.getLanguage() + ".txt"));
+      final SnowballProgram stemmer = stemmerFor(m_loc);
+
+      return new Analyzer() {
+        public TokenStream tokenStream(String fieldName, Reader reader)
+        {
+          TokenStream result = new StandardTokenizer(reader);
+          result = new StandardFilter(result);
+          result = new LowerCaseFilter(result);
+          if (stopSet != null)
+            result = new StopFilter(result, stopSet);
+
+          // Synonym replacement before (and/)or after snowball stemming?
+          // Replace before, and the exception list needs to include all word-endings,
+          // replace after, and it must be aware of awkward stem-forms.
+          // TODO: consider doing both! (in separate files)
+          if (exceptions != null)
+            result = new SubstitutionFilter(result, exceptions);
+          result = new SnowballFilter(result, stemmer);
+
+          return result;
+        }
+      };
     }
     catch (IOException ex) {
       throw new RuntimeException(ex);
     }
   }
 
+  private static SnowballProgram stemmerFor(Locale loc) {
+    String lang = loc.getLanguage();
+    return "da".equals(lang) ? new DanishStemmer() :
+           "sv".equals(lang) ? new SwedishStemmer() :
+           "en".equals(lang) ? new EnglishStemmer() : null;
+  }
 
   private static Map loadExceptions(URL source)
     throws IOException
@@ -262,4 +303,34 @@ public abstract class LuceneIndex
     void build() throws IOException;
   }
 
+  private static class SubstitutionFilter extends TokenFilter
+  {
+    private final Map substitutions;
+
+    public SubstitutionFilter(TokenStream input, Map substitutions)
+    {
+      super(input);
+      this.substitutions = substitutions;
+    }
+
+    @Override
+    public Token next(Token reusableToken)
+        throws IOException
+    {
+      Token nextToken = input.next(reusableToken);
+
+      if (nextToken != null && substitutions != null)
+      {
+        String term = nextToken.term().toLowerCase();
+        String replacement = (String)substitutions.get(term);
+        if (replacement != null)
+        {
+          nextToken.setTermBuffer(replacement);
+          LOG.debug("Changed '{}' to '{}'", term, replacement);
+        }
+      }
+
+      return nextToken;
+    }
+  }
 }
