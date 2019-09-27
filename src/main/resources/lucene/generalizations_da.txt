@@ -7,5 +7,8 @@ kontorstol=stol
 chaiselong=lænestol
 lænestol=stol
 
+sofabord=bord
+spisebord=bord
+
 # should be 'vitrine' can we stem keys on read?
 vitrin=skab

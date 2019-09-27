@@ -67,7 +67,15 @@ public class LuceneIndexTest
   }
 
   @Test
-  public void testComposite()
+  public void testGeneralizationTables()
+  {
+    assertEquals(2, da.search("bord", "description").size());
+    assertEquals(1, da.search("sofabord", "description").size());
+    assertEquals(1, da.search("spisebord", "description").size());
+  }
+
+  @Test
+  public void testGeneralizationChairs()
   {
     assertEquals(1, da.search("chaiselongue", "description").size());
     assertEquals(1, da.search("konferencestol", "description").size());
