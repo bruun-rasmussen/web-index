@@ -69,8 +69,9 @@ public class LuceneIndexTest
   @Test
   public void testComposite()
   {
-    assertEquals(2, da.search("kontorstol", "description").size());
     assertEquals(2, da.search("stol", "description").size());
+    assertEquals(1, da.search("konferencestol", "description").size());
+    assertEquals(1, da.search("kontorstol", "description").size());
   }
 
   @Test
