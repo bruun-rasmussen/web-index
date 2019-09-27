@@ -3,7 +3,6 @@ package dk.es.lucene;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
@@ -51,14 +50,15 @@ public abstract class LuceneIndex
   protected final static Logger LOG = LoggerFactory.getLogger(LuceneIndex.class);
 
   private final Locale m_loc;
-  protected final Analyzer m_analyzer;
+  protected final Analyzer indexAnalyzer;
+  protected final Analyzer queryAnalyzer;
 
   public static LuceneIndex RAM(Locale loc) {
     final RAMDirectory dir = new RAMDirectory();
 
     return new LuceneIndex(loc) {
       protected IndexWriter getWriter(boolean create) throws IOException {
-        return new IndexWriter(dir, m_analyzer, create, IndexWriter.MaxFieldLength.LIMITED);
+        return new IndexWriter(dir, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
       }
       protected IndexReader getReader() throws IOException {
         return IndexReader.open(dir);
@@ -76,7 +76,7 @@ public abstract class LuceneIndex
 
     return new LuceneIndex(loc) {
       protected IndexWriter getWriter(boolean create) throws IOException {
-        return new IndexWriter(path, m_analyzer, create, IndexWriter.MaxFieldLength.LIMITED);
+        return new IndexWriter(path, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
       }
       protected IndexReader getReader() throws IOException {
         return IndexReader.open(path);
@@ -90,7 +90,8 @@ public abstract class LuceneIndex
   protected LuceneIndex(Locale loc)
   {
     m_loc = loc;
-    m_analyzer = createAnalyzer();
+    this.indexAnalyzer = analyzer(loc, true);
+    this.queryAnalyzer = analyzer(loc, false);
   }
 
   public Locale getLocale()
@@ -122,7 +123,7 @@ public abstract class LuceneIndex
     queryText = LuceneHelper.normalize(queryText);
     queryText = LuceneHelper.escapeLuceneQuery(queryText).toLowerCase(m_loc);
     LOG.debug("query: \"{}\"", queryText);
-    QueryParser parser = new QueryParser(fieldName, m_analyzer); // <- should not use same analyzer as index writer!
+    QueryParser parser = new QueryParser(fieldName, queryAnalyzer); // <- should not use same analyzer as index writer!
     parser.setDefaultOperator(QueryParser.AND_OPERATOR);
     Query query = parser.parse(queryText);
 
@@ -156,15 +157,16 @@ public abstract class LuceneIndex
     return baseIds;
   }
 
-  private Analyzer createAnalyzer()
+  private static Analyzer analyzer(Locale loc, boolean generalize)
   {
     try {
       ClassLoader cl = Thread.currentThread().getContextClassLoader();
-      String stopWords[] = parseWords(cl.getResource("lucene/stopwords_" + m_loc.getLanguage() + ".txt"));
+      String stopWords[] = parseWords(cl.getResource("lucene/stopwords_" + loc.getLanguage() + ".txt"));
 
       final Set stopSet = stopWords == null ? null : StopFilter.makeStopSet(stopWords);
-      final Map exceptions = loadExceptions(cl.getResource("lucene/exceptions_" + m_loc.getLanguage() + ".txt"));
-      final SnowballProgram stemmer = stemmerFor(m_loc);
+      final Map exceptions = loadMap(cl.getResource("lucene/exceptions_" + loc.getLanguage() + ".txt"));
+      final Map generalizations = generalize ? loadMap(cl.getResource("lucene/generalizations_" + loc.getLanguage() + ".txt")) : null;
+      final SnowballProgram stemmer = stemmerFor(loc);
 
       return new Analyzer() {
         public TokenStream tokenStream(String fieldName, Reader reader)
@@ -182,6 +184,8 @@ public abstract class LuceneIndex
           if (exceptions != null)
             result = new SubstitutionFilter(result, exceptions);
           result = new SnowballFilter(result, stemmer);
+          if (generalizations != null)
+            result = new AliasFilter(result, generalizations);
 
           return result;
         }
@@ -199,21 +203,17 @@ public abstract class LuceneIndex
            "en".equals(lang) ? new EnglishStemmer() : null;
   }
 
-  private static Map loadExceptions(URL source)
+  private static Map loadMap(URL source)
     throws IOException
   {
     if (source == null)
       return null;
 
     Properties exceptions = new Properties();
-    InputStream is = source.openStream();
-    try {
+    try (Reader is = new InputStreamReader(source.openStream(), "UTF-8")) {
       exceptions.load(is);
-      return exceptions;
     }
-    finally {
-      is.close();
-    }
+    return exceptions;
   }
 
 
@@ -223,8 +223,8 @@ public abstract class LuceneIndex
     if (source == null)
         return null;
 
-    BufferedReader rdr = new BufferedReader(new InputStreamReader(source.openStream(), "iso-8859-1"));
-    try {
+    try (BufferedReader rdr = new BufferedReader(new InputStreamReader(source.openStream(), "UTF-8")))
+    {
       ArrayList result = new ArrayList();
       String line;
       while ((line = rdr.readLine()) != null)
@@ -237,9 +237,6 @@ public abstract class LuceneIndex
           result.add(line);
       }
       return (String[])result.toArray(new String[result.size()]);
-    }
-    finally {
-      rdr.close();
     }
   }
 
@@ -329,8 +326,46 @@ public abstract class LuceneIndex
           LOG.debug("Changed '{}' to '{}'", term, replacement);
         }
       }
-
       return nextToken;
     }
   }
+
+  private static class AliasFilter extends TokenFilter
+  {
+    private final Map aliases;
+    private String alias;
+
+    public AliasFilter(TokenStream input, Map aliases)
+    {
+      super(input);
+      this.aliases = aliases;
+    }
+
+    @Override
+    public Token next(Token reusableToken)
+        throws IOException
+    {
+      if (alias != null) {
+        LOG.debug("inserting alias '{}'", alias);
+        Token t = _fixedToken(alias);
+        alias = (String)aliases.get(alias);
+        return t;
+      }
+
+      Token next = input.next(reusableToken);
+      if (next == null)
+        return null;
+
+      String term = next.term().toLowerCase();
+      alias = (String)aliases.get(term);
+
+      return next;
+    }
+  }
+
+  private static Token _fixedToken(String word) {
+    char chars[] = word.toCharArray();
+    return new Token(chars, 0, chars.length, 0, chars.length);
+  }
+
 }

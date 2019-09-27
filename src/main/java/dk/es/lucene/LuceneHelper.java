@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
  * @author     TietoEnator Consulting
  * @since      6. april 2004
  */
-public class LuceneHelper
+class LuceneHelper
 {
   private final static Logger LOG = LoggerFactory.getLogger(LuceneHelper.class);
 
@@ -22,11 +22,11 @@ public class LuceneHelper
    * TODO: move to database and make locale-dependent:
    */
   private final static RegexpReplacement STANDARD_ITEM_REPLACEMENTS[] =
-      {
-  // Standardize Poul Kjærholm models and Wegner chairs:
-  // 'pk-22', 'ch 15', 'ch26' -> 'pk_22', 'ch_15', 'ch_26'
-      new RegexpReplacement("\\b([Pp][Kk]|[Cc][Hh])[-/. ]*([0-9]+)\\b", "$1 $2"),
-      };
+  {
+    // Standardize Poul Kjærholm models and Wegner chairs:
+    // 'pk-22', 'ch 15', 'ch26' -> 'pk_22', 'ch_15', 'ch_26'
+    new RegexpReplacement("\\b([Pp][Kk]|[Cc][Hh])[-/. ]*([0-9]+)\\b", "$1 $2"),
+  };
 
   private final static String ACCENTED_CHARS = "ÁÀÄÂáàäâÉÈËÊéèëêÍÌÏÎíìïîÓÒÖÔóòöôÚÙÜÛúùüûÝýÑñ";
   private final static String REPLACED_CHARS = "AAAAaaaaEEEEeeeeIIIIiiiiOOOOooooUUUUuuuuYyNn";
@@ -47,7 +47,7 @@ public class LuceneHelper
   private static String escapeString(String text, char specials[], char escapeChar)
   {
     char src[] = text.toCharArray();
-    StringBuffer res = new StringBuffer(src.length);
+    StringBuilder res = new StringBuilder(src.length);
     for (int i = 0; i < src.length; i++)
     {
       for (int j = 0; j < specials.length; j++)
@@ -63,8 +63,8 @@ public class LuceneHelper
 
   private static class RegexpReplacement
   {
-    private Pattern m_pattern;
-    private String m_replacement;
+    private final Pattern m_pattern;
+    private final String m_replacement;
 
     public RegexpReplacement(String regex, String replacement)
     {
@@ -74,8 +74,9 @@ public class LuceneHelper
 
     public static String applyReplacements(String text, RegexpReplacement replacements[])
     {
-      for (int i = 0; i < replacements.length; i++)
-        text = replacements[i].apply(text);
+      for (RegexpReplacement r : replacements)
+        text = r.apply(text);
+
       return text;
     }
 

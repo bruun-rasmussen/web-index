@@ -4,6 +4,4 @@
 
 bøger=bog
 skamler=skammel
-kontorstol=stol
-kontorstole=stol
-vitrine=skab
+chaiselongue=chaiselong

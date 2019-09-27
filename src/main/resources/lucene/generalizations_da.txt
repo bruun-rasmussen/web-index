@@ -1,0 +1,11 @@
+#
+# Index exceptions for Danish. Mainly here to correct various plural-to-singular irregularities
+#
+
+konferencestol=stol
+kontorstol=stol
+chaiselong=lænestol
+lænestol=stol
+
+# should be 'vitrine' can we stem keys on read?
+vitrin=skab
