@@ -80,8 +80,9 @@ public class LuceneIndexTest
     assertEquals(1, da.search("chaiselongue", "description").size());
     assertEquals(1, da.search("konferencestol", "description").size());
 
-    assertEquals(3, da.search("stol", "description").size());
+    assertEquals(4, da.search("stol", "description").size());
     assertEquals(2, da.search("kontorstol", "description").size());
+    assertEquals(2, da.search("lænestol", "description").size());
   }
 
   @Test
