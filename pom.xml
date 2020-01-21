@@ -7,7 +7,7 @@
 
     <groupId>dk.es.br</groupId>
     <artifactId>web-index</artifactId>
-    <version>0.12-SNAPSHOT</version>
+    <version>0.12</version>
 
     <name>Lucene index for Www.bruun-rasmussen.dk site</name>
 
