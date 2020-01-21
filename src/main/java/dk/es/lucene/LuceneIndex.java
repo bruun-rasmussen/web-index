@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -108,38 +109,43 @@ public abstract class LuceneIndex
   protected abstract IndexSearcher getSearcher()
     throws IOException;
 
-  private Hits _search(String queryText, String fieldName)
+  private Query _query(String queryText, String fieldName)
     throws IOException, ParseException
   {
-    queryText = LuceneHelper.normalize(queryText);
-    queryText = LuceneHelper.escapeLuceneQuery(queryText).toLowerCase(loc);
-    LOG.debug("query: \"{}\"[{}]", queryText, loc.getLanguage());
     QueryParser parser = new QueryParser(fieldName, queryAnalyzer);
     parser.setDefaultOperator(QueryParser.AND_OPERATOR);
-    Query query = parser.parse(queryText);
-
-    Hits hits = getSearcher().search(query);
-    LOG.info("\"{}\"[{}]: {} hit(s)", queryText, loc.getLanguage(), hits.length());
-    return hits;
+    // Sometimes throws StringIndexOutOfBoundsException from
+    // inside org.tartarus.snowball.ext.DanishStemmer.stem():
+    return parser.parse(queryText);
   }
 
   public Set<Long> search(String queryText, String fieldName) {
-    Set<Long> baseIds = new HashSet();
+    queryText = LuceneHelper.normalize(queryText);
+    queryText = LuceneHelper.escapeLuceneQuery(queryText).toLowerCase(loc);
+
+    Hits hits;
     try
     {
+      LOG.debug("query: \"{}\"[{}]", queryText, loc.getLanguage());
+      Query query = _query(queryText, fieldName);
       // Perform free-text query:
-      Hits hits = _search(queryText, fieldName);
+      hits = getSearcher().search(query);
+      LOG.info("\"{}\"[{}]: {} hit(s)", queryText, loc.getLanguage(), hits.length());
+    }
+    catch (Exception ex)
+    {
+      LOG.error("\"{}\"[{}] - failed to execute query", queryText, loc.getLanguage(), ex);
+      return Collections.emptySet();
+    }
 
+    Set<Long> baseIds = new HashSet();
+    try {
       // Collect item ids:
       for (int i = 0; i < hits.length(); i++)
       {
         Document doc = hits.doc(i);
         baseIds.add(new Long(doc.get(ITEM_ID)));
       }
-    }
-    catch (ParseException ex)
-    {
-      LOG.info(ex.getMessage());
     }
     catch (IOException ex)
     {
