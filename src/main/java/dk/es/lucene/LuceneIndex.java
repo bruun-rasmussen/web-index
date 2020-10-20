@@ -54,10 +54,10 @@ public abstract class LuceneIndex
   protected final Analyzer indexAnalyzer;
   protected final Analyzer queryAnalyzer;
 
-  public static LuceneIndex RAM(Locale loc, String srcEncoding) {
+  public static LuceneIndex RAM(Locale loc) {
     final RAMDirectory dir = new RAMDirectory();
 
-    return new LuceneIndex(loc, srcEncoding) {
+    return new LuceneIndex(loc) {
       protected IndexWriter getWriter(boolean create) throws IOException {
         return new IndexWriter(dir, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
       }
@@ -70,12 +70,12 @@ public abstract class LuceneIndex
     };
   }
 
-  public static LuceneIndex DISK(Locale loc, File indexDir, String srcEncoding) {
+  public static LuceneIndex DISK(Locale loc, File indexDir) {
     final String path = indexDir.getAbsolutePath();
     LOG.info("creating index in {}", path);
     indexDir.mkdirs();
 
-    return new LuceneIndex(loc, srcEncoding) {
+    return new LuceneIndex(loc) {
       protected IndexWriter getWriter(boolean create) throws IOException {
         return new IndexWriter(path, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
       }
@@ -88,11 +88,11 @@ public abstract class LuceneIndex
     };
   }
 
-  protected LuceneIndex(Locale loc, String srcEncoding)
+  protected LuceneIndex(Locale loc)
   {
     this.loc = loc;
-    this.indexAnalyzer = analyzer(loc, true, srcEncoding);
-    this.queryAnalyzer = analyzer(loc, false, srcEncoding);
+    this.indexAnalyzer = analyzer(loc, true);
+    this.queryAnalyzer = analyzer(loc, false);
   }
 
   public Locale getLocale()
@@ -154,7 +154,7 @@ public abstract class LuceneIndex
     return baseIds;
   }
 
-  private static Analyzer analyzer(Locale loc, boolean generalize, String srcEncoding)
+  private static Analyzer analyzer(Locale loc, boolean generalize)
   {
     try {
       ClassLoader cl = Thread.currentThread().getContextClassLoader();

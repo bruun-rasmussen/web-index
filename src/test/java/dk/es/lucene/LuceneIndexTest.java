@@ -41,7 +41,7 @@ public class LuceneIndexTest
   private LuceneIndex readIndex(String yamlResource) throws IOException {
     String lang = yamlResource.replaceFirst(".*_([a-z]{2})\\.yaml", "$1");
 
-    LuceneIndex idx = LuceneIndex.RAM(new Locale(lang), "UTF-8");
+    LuceneIndex idx = LuceneIndex.RAM(new Locale(lang));
     try (InputStream is = getClass().getResourceAsStream(yamlResource))
     {
       readYaml(is, idx);
