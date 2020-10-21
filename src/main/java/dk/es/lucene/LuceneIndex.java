@@ -154,7 +154,7 @@ public abstract class LuceneIndex
     return baseIds;
   }
 
-  private static Analyzer analyzer(Locale loc, boolean generalize)
+  private static Analyzer analyzer(final Locale loc, boolean generalize)
   {
     try {
       ClassLoader cl = Thread.currentThread().getContextClassLoader();
@@ -163,7 +163,6 @@ public abstract class LuceneIndex
       final Set stopSet = stopWords == null ? null : StopFilter.makeStopSet(stopWords);
       final Map exceptions = loadMap(cl.getResource("lucene/exceptions_" + loc.getLanguage() + ".txt"));
       final Map generalizations = generalize ? loadMap(cl.getResource("lucene/generalizations_" + loc.getLanguage() + ".txt")) : null;
-      final SnowballProgram stemmer = stemmerFor(loc);
 
       return new Analyzer() {
         public TokenStream tokenStream(String fieldName, Reader reader)
@@ -180,7 +179,7 @@ public abstract class LuceneIndex
           // TODO: consider doing both! (in separate files)
           if (exceptions != null)
             result = new SubstitutionFilter(result, exceptions);
-          result = new SnowballFilter(result, stemmer);
+          result = new SnowballFilter(result, stemmerFor(loc));
           if (generalizations != null)
             result = new AliasFilter(result, generalizations);
 
@@ -213,7 +212,6 @@ public abstract class LuceneIndex
     }
     return exceptions;
   }
-
 
   private static String[] parseWords(URL source)
     throws IOException
@@ -366,5 +364,4 @@ public abstract class LuceneIndex
     char chars[] = word.toCharArray();
     return new Token(chars, 0, chars.length, 0, chars.length);
   }
-
 }
