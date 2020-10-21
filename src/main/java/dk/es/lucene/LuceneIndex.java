@@ -13,7 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,15 +126,15 @@ public abstract class LuceneIndex
     Hits hits;
     try
     {
-      LOG.debug("query: \"{}\"[{}]", queryText, loc.getLanguage());
+      LOG.debug("query: \"{}\"[{}_{}]", queryText, fieldName, loc.getLanguage());
       Query query = _query(queryText, fieldName);
       // Perform free-text query:
       hits = getSearcher().search(query);
-      LOG.info("\"{}\"[{}]: {} hit(s)", queryText, loc.getLanguage(), hits.length());
+      LOG.info("\"{}\"[{}_{}]: {} hit(s)", queryText, fieldName, loc.getLanguage(), hits.length());
     }
     catch (Exception ex)
     {
-      LOG.error("\"{}\"[{}] - failed to execute query", queryText, loc.getLanguage(), ex);
+      LOG.error("\"{}\"[{}_{}] - failed to execute query", queryText, fieldName, loc.getLanguage(), ex);
       return Collections.emptySet();
     }
 
