@@ -20,12 +20,12 @@ import org.slf4j.LoggerFactory;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.StopFilter;
-import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.snowball.SnowballFilter;
 import org.apache.lucene.analysis.standard.StandardFilter;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexReader;
@@ -33,10 +33,15 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
-import org.apache.lucene.search.Hits;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.TopFieldDocs;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.RAMDirectory;
+import org.apache.lucene.util.Version;
 import org.tartarus.snowball.SnowballProgram;
 import org.tartarus.snowball.ext.DanishStemmer;
 import org.tartarus.snowball.ext.EnglishStemmer;
@@ -65,25 +70,26 @@ public abstract class LuceneIndex
         return IndexReader.open(dir);
       }
       protected IndexSearcher getSearcher() throws IOException {
-        return new IndexSearcher(dir);
+        return new IndexSearcher(getReader());
       }
     };
   }
 
-  public static LuceneIndex DISK(Locale loc, File indexDir) {
-    final String path = indexDir.getAbsolutePath();
+  public static LuceneIndex DISK(Locale loc, File indexDir) throws IOException {
+    String path = indexDir.getAbsolutePath();
     LOG.info("creating index in {}", path);
     indexDir.mkdirs();
+    Directory dir = FSDirectory.open(indexDir);
 
     return new LuceneIndex(loc) {
       protected IndexWriter getWriter(boolean create) throws IOException {
-        return new IndexWriter(path, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
+        return new IndexWriter(dir, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
       }
       protected IndexReader getReader() throws IOException {
-        return IndexReader.open(path);
+        return IndexReader.open(dir);
       }
       protected IndexSearcher getSearcher() throws IOException {
-        return new IndexSearcher(path);
+        return new IndexSearcher(getReader());
       }
     };
   }
@@ -112,7 +118,7 @@ public abstract class LuceneIndex
   private Query _query(String queryText, String fieldName)
     throws IOException, ParseException
   {
-    QueryParser parser = new QueryParser(fieldName, queryAnalyzer);
+    QueryParser parser = new QueryParser(Version.LUCENE_30, fieldName, queryAnalyzer);
     parser.setDefaultOperator(QueryParser.AND_OPERATOR);
     // Sometimes throws StringIndexOutOfBoundsException from
     // inside org.tartarus.snowball.ext.DanishStemmer.stem():
@@ -123,35 +129,27 @@ public abstract class LuceneIndex
     queryText = LuceneHelper.normalize(queryText);
     queryText = LuceneHelper.escapeLuceneQuery(queryText).toLowerCase(loc);
 
-    Hits hits;
-    try
-    {
+    try {
       LOG.debug("query: \"{}\"[{}_{}]", queryText, fieldName, loc.getLanguage());
       Query query = _query(queryText, fieldName);
+
       // Perform free-text query:
-      hits = getSearcher().search(query);
-      LOG.info("\"{}\"[{}_{}]: {} hit(s)", queryText, fieldName, loc.getLanguage(), hits.length());
+      IndexSearcher searcher = getSearcher();
+      TopFieldDocs hits = searcher.search(query, 1000, Sort.RELEVANCE);
+      LOG.info("\"{}\"[{}_{}]: {} hit(s)", queryText, fieldName, loc.getLanguage(), hits);
+
+      Set<Long> baseIds = new HashSet();
+      // Collect item ids:
+      for (ScoreDoc sc : hits.scoreDocs) {
+        Document doc = searcher.doc(sc.doc);
+        baseIds.add(Long.valueOf(doc.get(ITEM_ID)));
+      }
+      return baseIds;
     }
-    catch (Exception ex)
-    {
+    catch (Exception ex) {
       LOG.error("\"{}\"[{}_{}] - failed to execute query", queryText, fieldName, loc.getLanguage(), ex);
       return Collections.emptySet();
     }
-
-    Set<Long> baseIds = new HashSet();
-    try {
-      // Collect item ids:
-      for (int i = 0; i < hits.length(); i++)
-      {
-        Document doc = hits.doc(i);
-        baseIds.add(new Long(doc.get(ITEM_ID)));
-      }
-    }
-    catch (IOException ex)
-    {
-      LOG.error("Failed to execute query", ex);
-    }
-    return baseIds;
   }
 
   private static Analyzer analyzer(final Locale loc, boolean generalize)
@@ -160,18 +158,19 @@ public abstract class LuceneIndex
       ClassLoader cl = Thread.currentThread().getContextClassLoader();
       String stopWords[] = parseWords(cl.getResource("lucene/stopwords_" + loc.getLanguage() + ".txt"));
 
-      final Set stopSet = stopWords == null ? null : StopFilter.makeStopSet(stopWords);
+      final Set stopSet = stopWords == null ? null : StopFilter.makeStopSet(Version.LUCENE_30, stopWords);
       final Map exceptions = loadMap(cl.getResource("lucene/exceptions_" + loc.getLanguage() + ".txt"));
       final Map generalizations = generalize ? loadMap(cl.getResource("lucene/generalizations_" + loc.getLanguage() + ".txt")) : null;
 
       return new Analyzer() {
         public TokenStream tokenStream(String fieldName, Reader reader)
         {
-          TokenStream result = new StandardTokenizer(reader);
-          result = new StandardFilter(result);
-          result = new LowerCaseFilter(result);
+          TokenStream result = new StandardTokenizer(Version.LUCENE_30, reader);
+          result = new StandardFilter(Version.LUCENE_30, result);
+          result = new LowerCaseFilter(Version.LUCENE_30, result);
+
           if (stopSet != null)
-            result = new StopFilter(result, stopSet);
+            result = new StopFilter(Version.LUCENE_30, result, stopSet);
 
           // Synonym replacement before (and/)or after snowball stemming?
           // Replace before, and the exception list needs to include all word-endings,
@@ -233,18 +232,18 @@ public abstract class LuceneIndex
           result.add(line);
       }
       LOG.info("{} loaded ({} terms)", source, result.size());
-      return (String[])result.toArray(new String[result.size()]);
+      return (String[])result.toArray(new String[0]);
     }
   }
 
   private final static String ITEM_ID = "item_id";
 
   public void deleteItem(Long itemId) throws IOException {
-    IndexReader reader = getReader();
-    int deleteCount = reader.deleteDocuments(new Term(ITEM_ID, itemId.toString()));
-    if (deleteCount > 0)
-      LOG.info("removed item {}({}) from index", itemId, loc.getLanguage());
-    reader.close();
+    try (IndexReader reader = getReader()) {
+      int deleteCount = reader.deleteDocuments(new Term(ITEM_ID, itemId.toString()));
+      if (deleteCount > 0)
+        LOG.info("removed item {}({}) from index", itemId, loc.getLanguage());
+    }
   }
 
   public Writer open(boolean create) throws IOException {
@@ -299,69 +298,66 @@ public abstract class LuceneIndex
 
   private static class SubstitutionFilter extends TokenFilter
   {
-    private final Map substitutions;
+    private final Map<String,String> substitutions;
+    private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
 
-    public SubstitutionFilter(TokenStream input, Map substitutions)
+    public SubstitutionFilter(TokenStream input, Map<String,String> substitutions)
     {
       super(input);
       this.substitutions = substitutions;
     }
 
     @Override
-    public Token next(Token reusableToken)
-        throws IOException
-    {
-      Token nextToken = input.next(reusableToken);
+    public boolean incrementToken() throws IOException {
+      if (!input.incrementToken())
+        return false;
 
-      if (nextToken != null && substitutions != null)
-      {
-        String term = nextToken.term().toLowerCase();
-        String replacement = (String)substitutions.get(term);
-        if (replacement != null)
-        {
-          nextToken.setTermBuffer(replacement);
-          LOG.debug("Changed '{}' to '{}'", term, replacement);
-        }
+      String term = new String(termAtt.buffer(), 0, termAtt.length()).toLowerCase();
+      String replacement = substitutions.get(term);
+      if (replacement != null) {
+        char rep[] = replacement.toCharArray();
+        termAtt.copyBuffer(rep, 0, rep.length);
+        LOG.info("Changed '{}' to '{}'", term, replacement);
       }
-      return nextToken;
+      else {
+        LOG.info("No replacement for '{}'", term);
+      }
+
+      return true;
     }
   }
 
   private static class AliasFilter extends TokenFilter
   {
-    private final Map aliases;
+    private final Map<String,String> aliases;
     private String alias;
+    private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
 
-    public AliasFilter(TokenStream input, Map aliases)
+    public AliasFilter(TokenStream input, Map<String,String> aliases)
     {
       super(input);
       this.aliases = aliases;
     }
 
     @Override
-    public Token next(Token reusableToken)
-        throws IOException
-    {
+    public boolean incrementToken() throws IOException {
       if (alias != null) {
         LOG.debug("inserting alias '{}'", alias);
-        Token t = _fixedToken(alias);
-        alias = (String)aliases.get(alias);
-        return t;
+
+        char sub[] = alias.toCharArray();
+        termAtt.copyBuffer(sub, 0, sub.length);
+
+        alias = aliases.get(alias);
+        return true;
       }
 
-      Token next = input.next(reusableToken);
-      if (next == null)
-        return null;
+      if (!input.incrementToken())
+        return false;
 
-      String term = next.term().toLowerCase();
-      alias = (String)aliases.get(term);
+      String term = new String(termAtt.buffer(), 0, termAtt.length()).toLowerCase();
+      alias = aliases.get(term);
 
-      return next;
+      return true;
     }
-  }
-
-  private static Token _fixedToken(String word) {
-    char chars[] = word.toCharArray();
-    return new Token(chars, 0, chars.length, 0, chars.length);
   }
 }

@@ -15,10 +15,6 @@ import org.yaml.snakeyaml.Yaml;
  */
 public class LuceneIndexTest
 {
-  public LuceneIndexTest()
-  {
-  }
-
   private static void readYaml(InputStream is, LuceneIndex index) throws IOException {
     Yaml yaml = new Yaml();
 
@@ -27,7 +23,7 @@ public class LuceneIndexTest
     LuceneIndex.Writer w = index.open(true);
     for (Map.Entry<Integer, List<Map<String,String>>> k : obj.entrySet())
     {
-      Long itemId = new Long(k.getKey());
+      Long itemId = Long.valueOf(k.getKey());
       LuceneIndex.Builder b = w.newDocument(itemId);
       for (Map<String,String> o : k.getValue()) {
         for (Map.Entry<String, String> ss : o.entrySet())
@@ -83,6 +79,13 @@ public class LuceneIndexTest
     assertEquals(4, da.search("stol", "description").size());
     assertEquals(2, da.search("kontorstol", "description").size());
     assertEquals(2, da.search("lænestol", "description").size());
+  }
+
+  @Test
+  public void testGeneralizationRifle()
+  {
+    assertEquals(1, da.search("kavallerikarabin", "description").size());
+    assertEquals(1, da.search("karabin", "description").size());
   }
 
   @Test

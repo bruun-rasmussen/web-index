@@ -12,3 +12,18 @@ spisebord=bord
 
 # should be 'vitrine' can we stem keys on read?
 vitrin=skab
+
+rytterkarabin=karabin
+remingtonkarabin=karabin
+ingeniørkarabin=karabin
+fodfolkskarabin=karabin
+kammerladningskarabin=karabin
+flintlåskarabin=karabin
+ringhanekarabin=karabin
+enfieldkarabin=karabin
+marinekarabin=karabin
+kavallerikarabin=karabin
+perkussionskarabin=karabin
+revolverkarabin=karabin
+militærkarabin=karabin
+pistolkarabin=karabin
