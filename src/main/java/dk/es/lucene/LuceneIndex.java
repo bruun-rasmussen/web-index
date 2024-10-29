@@ -279,6 +279,10 @@ public class LuceneIndex
       writer.commit();
       writer.close();
     }
+
+    public Locale getLocale() {
+      return loc;
+    }
   }
 
   public static interface Builder
