@@ -317,10 +317,7 @@ public abstract class LuceneIndex
       if (replacement != null) {
         char rep[] = replacement.toCharArray();
         termAtt.copyBuffer(rep, 0, rep.length);
-        LOG.info("Changed '{}' to '{}'", term, replacement);
-      }
-      else {
-        LOG.info("No replacement for '{}'", term);
+        LOG.debug("Changed '{}' to '{}'", term, replacement);
       }
 
       return true;
