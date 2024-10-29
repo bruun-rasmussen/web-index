@@ -6,14 +6,14 @@
 
     <groupId>dk.es.br</groupId>
     <artifactId>web-index</artifactId>
-    <version>0.15-SNAPSHOT</version>
+    <version>0.15</version>
 
     <name>Lucene index for Www.bruun-rasmussen.dk site</name>
 
     <scm>
       <connection>scm:git:git@github.com:bruun-rasmussen/web-index.git</connection>
       <developerConnection>scm:git:git@github.com:bruun-rasmussen/web-index.git</developerConnection>
-      <tag>HEAD</tag>
+      <tag>web-index-0.15</tag>
     </scm>
 
     <properties>
