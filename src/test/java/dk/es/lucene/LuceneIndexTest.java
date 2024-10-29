@@ -20,7 +20,7 @@ public class LuceneIndexTest
 
     Map<Integer, List<Map<String,String>>> obj = (Map<Integer, List<Map<String,String>>>)yaml.load(is);
 
-    LuceneIndex.Writer w = index.open(true);
+    LuceneIndex.Writer w = index.create();
     for (Map.Entry<Integer, List<Map<String,String>>> k : obj.entrySet())
     {
       Long itemId = Long.valueOf(k.getKey());
@@ -60,6 +60,18 @@ public class LuceneIndexTest
     assertEquals(3, da.search("Knud Nielsen", "description").size());
 
     assertEquals(1, da.search("samlerobjekt", "description").size());
+  }
+
+  @Test
+  public void testDelete() throws IOException
+  {
+    assertEquals(1, da.search("Rød begyndelse", "description").size());
+    da.deleteItem(300692980L);
+    assertEquals(0, da.search("Rød begyndelse", "description").size());
+
+    // Do it again to test for itempotency:
+    da.deleteItem(300692980L);
+    assertEquals(0, da.search("Rød begyndelse", "description").size());
   }
 
   @Test

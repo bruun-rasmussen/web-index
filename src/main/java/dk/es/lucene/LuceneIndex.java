@@ -30,6 +30,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
@@ -51,28 +52,19 @@ import org.tartarus.snowball.ext.SwedishStemmer;
  * @author     TietoEnator Consulting
  * @since      28. januar 2004
  */
-public abstract class LuceneIndex
+public class LuceneIndex
 {
-  protected final static Logger LOG = LoggerFactory.getLogger(LuceneIndex.class);
+  private final static Logger LOG = LoggerFactory.getLogger(LuceneIndex.class);
+
+  private final static Version VER = Version.LUCENE_36;
 
   private final Locale loc;
-  protected final Analyzer indexAnalyzer;
-  protected final Analyzer queryAnalyzer;
+  private final Directory dir;
+  private final Analyzer indexAnalyzer;
+  private final Analyzer queryAnalyzer;
 
   public static LuceneIndex RAM(Locale loc) {
-    final RAMDirectory dir = new RAMDirectory();
-
-    return new LuceneIndex(loc) {
-      protected IndexWriter getWriter(boolean create) throws IOException {
-        return new IndexWriter(dir, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
-      }
-      protected IndexReader getReader() throws IOException {
-        return IndexReader.open(dir);
-      }
-      protected IndexSearcher getSearcher() throws IOException {
-        return new IndexSearcher(getReader());
-      }
-    };
+    return new LuceneIndex(loc, new RAMDirectory());
   }
 
   public static LuceneIndex DISK(Locale loc, File indexDir) throws IOException {
@@ -81,22 +73,13 @@ public abstract class LuceneIndex
     indexDir.mkdirs();
     Directory dir = FSDirectory.open(indexDir);
 
-    return new LuceneIndex(loc) {
-      protected IndexWriter getWriter(boolean create) throws IOException {
-        return new IndexWriter(dir, indexAnalyzer, create, IndexWriter.MaxFieldLength.LIMITED);
-      }
-      protected IndexReader getReader() throws IOException {
-        return IndexReader.open(dir);
-      }
-      protected IndexSearcher getSearcher() throws IOException {
-        return new IndexSearcher(getReader());
-      }
-    };
+    return new LuceneIndex(loc, dir);
   }
 
-  protected LuceneIndex(Locale loc)
+  protected LuceneIndex(Locale loc, Directory dir)
   {
     this.loc = loc;
+    this.dir = dir;
     this.indexAnalyzer = analyzer(loc, true);
     this.queryAnalyzer = analyzer(loc, false);
   }
@@ -106,19 +89,10 @@ public abstract class LuceneIndex
     return loc;
   }
 
-  protected abstract IndexWriter getWriter(boolean create)
-    throws IOException;
-
-  protected abstract IndexReader getReader()
-    throws IOException;
-
-  protected abstract IndexSearcher getSearcher()
-    throws IOException;
-
   private Query _query(String queryText, String fieldName)
     throws IOException, ParseException
   {
-    QueryParser parser = new QueryParser(Version.LUCENE_30, fieldName, queryAnalyzer);
+    QueryParser parser = new QueryParser(VER, fieldName, queryAnalyzer);
     parser.setDefaultOperator(QueryParser.AND_OPERATOR);
     // Sometimes throws StringIndexOutOfBoundsException from
     // inside org.tartarus.snowball.ext.DanishStemmer.stem():
@@ -134,7 +108,7 @@ public abstract class LuceneIndex
       Query query = _query(queryText, fieldName);
 
       // Perform free-text query:
-      IndexSearcher searcher = getSearcher();
+      IndexSearcher searcher = new IndexSearcher(IndexReader.open(dir));
       TopFieldDocs hits = searcher.search(query, 1000, Sort.RELEVANCE);
       LOG.info("\"{}\"[{}_{}]: {} hit(s)", queryText, fieldName, loc.getLanguage(), hits.totalHits);
 
@@ -158,19 +132,19 @@ public abstract class LuceneIndex
       ClassLoader cl = Thread.currentThread().getContextClassLoader();
       String stopWords[] = parseWords(cl.getResource("lucene/stopwords_" + loc.getLanguage() + ".txt"));
 
-      final Set stopSet = stopWords == null ? null : StopFilter.makeStopSet(Version.LUCENE_30, stopWords);
+      final Set stopSet = stopWords == null ? null : StopFilter.makeStopSet(VER, stopWords);
       final Map exceptions = loadMap(cl.getResource("lucene/exceptions_" + loc.getLanguage() + ".txt"));
       final Map generalizations = generalize ? loadMap(cl.getResource("lucene/generalizations_" + loc.getLanguage() + ".txt")) : null;
 
       return new Analyzer() {
         public TokenStream tokenStream(String fieldName, Reader reader)
         {
-          TokenStream result = new StandardTokenizer(Version.LUCENE_30, reader);
-          result = new StandardFilter(Version.LUCENE_30, result);
-          result = new LowerCaseFilter(Version.LUCENE_30, result);
+          TokenStream result = new StandardTokenizer(VER, reader);
+          result = new StandardFilter(VER, result);
+          result = new LowerCaseFilter(VER, result);
 
           if (stopSet != null)
-            result = new StopFilter(Version.LUCENE_30, result, stopSet);
+            result = new StopFilter(VER, result, stopSet);
 
           // Synonym replacement before (and/)or after snowball stemming?
           // Replace before, and the exception list needs to include all word-endings,
@@ -239,16 +213,33 @@ public abstract class LuceneIndex
   private final static String ITEM_ID = "item_id";
 
   public void deleteItem(Long itemId) throws IOException {
-    try (IndexReader reader = getReader()) {
-      int deleteCount = reader.deleteDocuments(new Term(ITEM_ID, itemId.toString()));
-      if (deleteCount > 0)
-        LOG.info("removed item {}({}) from index", itemId, loc.getLanguage());
+    try (IndexWriter writer = new IndexWriter(dir, appenderCfg())) {
+      writer.deleteDocuments(new Term(ITEM_ID, itemId.toString()));
+      LOG.debug("item {} gone", itemId);
     }
   }
 
+  public Writer create() throws IOException {
+    return new Writer(new IndexWriter(dir, creatorCfg()));
+  }
+
+  public Writer open() throws IOException {
+    return new Writer(new IndexWriter(dir, appenderCfg()));
+  }
+
+  /**
+   * @deprecated   Use create() or open() instead
+   */
   public Writer open(boolean create) throws IOException {
-    IndexWriter writer = getWriter(create);
-    return new Writer(writer);
+    return create ? create() : open();
+  }
+
+  private IndexWriterConfig creatorCfg() {
+    return new IndexWriterConfig(VER, indexAnalyzer).setOpenMode(IndexWriterConfig.OpenMode.CREATE);
+  }
+
+  private IndexWriterConfig appenderCfg() {
+    return new IndexWriterConfig(VER, indexAnalyzer).setOpenMode(IndexWriterConfig.OpenMode.APPEND);
   }
 
   public class Writer {
