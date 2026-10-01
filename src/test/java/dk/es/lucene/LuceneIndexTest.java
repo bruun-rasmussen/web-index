@@ -115,4 +115,82 @@ public class LuceneIndexTest
     assertEquals(1, da.search("vitrine", "description").size());
     assertEquals(1, da.search("skab", "description").size());
   }
+
+  @Test
+  public void testLettersDigitsSplit()
+  {
+    // Indexed as 'bm 1', found as either:
+    assertEquals(1, da.search("bm1", "description").size());
+    assertEquals(1, da.search("BM 1", "description").size());
+    // Indexed as 'FJ66', likewise:
+    assertEquals(1, da.search("fj66", "description").size());
+    assertEquals(1, da.search("fj 66", "description").size());
+
+    assertEquals(1, da.search("1908/102A", "auctionCatalogNumber").size());
+  }
+
+  @Test
+  public void testNormalize()
+  {
+    assertEquals("bm 1 FJ 45 PK 22 ch 26", LuceneHelper.normalize("bm1 FJ45 PK22 ch-26"));
+    assertEquals("h2o 1907/806A 3x4", LuceneHelper.normalize("h2o 1907/806A 3x4"));
+    assertEquals("ø 20 cm", LuceneHelper.normalize("ø20 cm"));
+  }
+
+  @Test
+  public void testNormalizeAccents()
+  {
+    assertEquals("Cafe Muller Højdejusterbar", LuceneHelper.normalize("Café Müller Højdejustérbar"));
+    assertEquals("EN 3", LuceneHelper.normalize("ÉÑ3"));
+    // Æ, Ø and Å are kept, but Swedish/German ö is not:
+    assertEquals("Æble Øre Ångstrom", LuceneHelper.normalize("Æble Øre Ångström"));
+  }
+
+  @Test
+  public void testNormalizeDesignerModels()
+  {
+    assertEquals("pk 22 PK 22 ch 26 CH 15 pk 22 Pk 22", LuceneHelper.normalize("pk-22 PK/22 ch.26 CH  15 pk - 22 Pk22"));
+    assertEquals("bm 1 BM 1 bm 1 Bm 1", LuceneHelper.normalize("bm-1 BM/1 bm.1 Bm  1"));
+    assertEquals("PK 22", LuceneHelper.normalize("PK 22"));
+    // Only at the start of a word:
+    assertEquals("APK 15", LuceneHelper.normalize("APK 15"));
+    // Not when followed by letters:
+    assertEquals("pk22a", LuceneHelper.normalize("pk22a"));
+    assertEquals("PK 22-23", LuceneHelper.normalize("PK22-23"));
+  }
+
+  @Test
+  public void testNormalizeLettersDigits()
+  {
+    assertEquals("v 1825 æ 5 e 5", LuceneHelper.normalize("v1825 æ5 é5"));
+    assertEquals("(FJ 45) bm 1.", LuceneHelper.normalize("(FJ45) bm1."));
+    // Left alone when letters and digits are mixed, or digits come first:
+    assertEquals("h2o a1b2 66FJ 3x4", LuceneHelper.normalize("h2o a1b2 66FJ 3x4"));
+    assertEquals("1907/806A M/1821/23", LuceneHelper.normalize("1907/806A M/1821/23"));
+  }
+
+  @Test
+  public void testEscapeLuceneQuery()
+  {
+    assertEquals("a\\+b \\(c\\) x\\:y\\* \\-foo a\\\\b", LuceneHelper.escapeLuceneQuery("a+b (c) x:y* -foo a\\b"));
+    // Quotes and slashes pass through:
+    assertEquals("\"Morgen Sang\" 1907/806", LuceneHelper.escapeLuceneQuery("\"Morgen Sang\" 1907/806"));
+  }
+
+  @Test
+  public void testSearchNormalized()
+  {
+    // Indexed as 'PK 54':
+    assertEquals(1, da.search("PK54", "description").size());
+    assertEquals(1, da.search("pk-54", "description").size());
+    assertEquals(1, da.search("pk/54", "description").size());
+    // Indexed as 'bm 1':
+    assertEquals(1, da.search("bm-1", "description").size());
+    assertEquals(1, da.search("BM/1", "description").size());
+    // Indexed as 'v1825':
+    assertEquals(1, da.search("v 1825", "description").size());
+    // Indexed as 'Højdejustérbar':
+    assertEquals(1, da.search("højdejusterbar", "description").size());
+    assertEquals(1, da.search("højdejustérbar", "description").size());
+  }
 }

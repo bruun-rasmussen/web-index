@@ -23,9 +23,12 @@ class LuceneHelper
    */
   private final static RegexpReplacement STANDARD_ITEM_REPLACEMENTS[] =
   {
-    // Standardize Poul Kjærholm models and Wegner chairs:
-    // 'pk-22', 'ch 15', 'ch26' -> 'pk_22', 'ch_15', 'ch_26'
-    new RegexpReplacement("\\b([Pp][Kk]|[Cc][Hh])[-/. ]*([0-9]+)\\b", "$1 $2"),
+    // Standardize Poul Kjærholm, Hans J. Wegner and Børge Mogensen models:
+    // 'pk-22', 'ch 15', 'bm/1' -> 'pk 22', 'ch 15', 'bm 1'
+    new RegexpReplacement("\\b([Pp][Kk]|[Cc][Hh]|[Bb][Mm])[-/. ]*([0-9]+)\\b", "$1 $2"),
+    // Split any other model-number-like word, letters then digits, the same way:
+    // 'FJ45', 'v1825' -> 'FJ 45', 'v 1825' (but not 'h2o', '1907/806A')
+    new RegexpReplacement("(?<![\\p{L}\\p{N}])(\\p{L}+)([0-9]+)(?![\\p{L}\\p{N}])", "$1 $2"),
   };
 
   private final static String ACCENTED_CHARS = "ÁÀÄÂáàäâÉÈËÊéèëêÍÌÏÎíìïîÓÒÖÔóòöôÚÙÜÛúùüûÝýÑñ";
