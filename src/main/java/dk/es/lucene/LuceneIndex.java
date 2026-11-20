@@ -110,7 +110,7 @@ public class LuceneIndex
       // Perform free-text query:
       IndexSearcher searcher = new IndexSearcher(IndexReader.open(dir));
       TopFieldDocs hits = searcher.search(query, 1000, Sort.RELEVANCE);
-      LOG.info("\"{}\"[{}_{}]: {} hit(s)", queryText, fieldName, loc.getLanguage(), hits.totalHits);
+      LOG.debug("\"{}\"[{}_{}]: {} hit(s)", queryText, fieldName, loc.getLanguage(), hits.totalHits);
 
       Set<Long> baseIds = new HashSet();
       // Collect item ids:
